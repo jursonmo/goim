@@ -155,6 +155,8 @@ func (s *Server) ServeTCP(conn *net.TCPConn, rp, wp *bytes.Pool, tr *xtime.Timer
 	go s.dispatchTCP(conn, wr, wp, wb, ch)
 	serverHeartbeat := s.RandServerHearbeat()
 	for {
+		//其实这里就是从ring 拿到可用的p(内存对象)，用于接收数据，接收完后 ch.CliProto.SetAdv();ch.Signal()
+		//ch.Signal()是发通知到dispatchTCP goroutine, 这样dispatchTCP 就可以从ring 读到数据。
 		if p, err = ch.CliProto.Set(); err != nil {
 			break
 		}

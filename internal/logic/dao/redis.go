@@ -170,6 +170,7 @@ func (d *Dao) KeysByMids(c context.Context, mids []int64) (ress map[string]strin
 		var (
 			res map[string]string
 		)
+		//res 是一个map, 键是client 认证的Key， 值是comet server.
 		if res, err = redis.StringMap(conn.Receive()); err != nil {
 			log.Errorf("conn.Receive() error(%v)", err)
 			return
@@ -178,7 +179,7 @@ func (d *Dao) KeysByMids(c context.Context, mids []int64) (ress map[string]strin
 			olMids = append(olMids, mids[idx])
 		}
 		for k, v := range res {
-			ress[k] = v
+			ress[k] = v //ress这里就保存mids 所有的client Key 和comet server ,也是给Mids发消息，最终就是要转换成client Key 和comet server
 		}
 	}
 	return

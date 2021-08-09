@@ -84,6 +84,7 @@ func (s *Server) Operate(ctx context.Context, p *protocol.Proto, ch *Channel, b 
 		p.Op = protocol.OpUnsubReply
 	default:
 		// TODO ack ok&failed
+		//接受client 的消息，然后grpc 发给logic, logic server 的 Receive 方法。目前看logic Receive 方法没有任何的处理
 		if err := s.Receive(ctx, ch.Mid, p); err != nil {
 			log.Errorf("s.Report(%d) op:%d error(%v)", ch.Mid, p.Op, err)
 		}
