@@ -1,6 +1,10 @@
 # This is a TOML document. Boom
 [discovery]
     nodes = ["127.0.0.1:7171"]
+    region = "sh"
+    zone = "sh001"
+    host = "test1"
+    env = "dev"
 
 [regions]
     "bj" = ["北京","天津","河北","山东","山西","内蒙古","辽宁","吉林","黑龙江","甘肃","宁夏","新疆"]
@@ -44,7 +48,7 @@
 
 [redis]
     network = "tcp"
-    addr = "127.0.0.1:6379"
+    addr = "192.168.13.2:6379"
     active = 60000
     idle = 1024
     dialTimeout = "200ms"

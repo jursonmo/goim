@@ -1,6 +1,15 @@
 # This is a TOML document. Boom
 [discovery]
-    nodes = ["127.0.0.1:7171"]
+    nodes = ["127.0.0.1:7171", "127.0.0.1:7172"]
+    region = "sh"
+    zone = "sh001"
+    host = "job01"
+    env = "dev"
+[env]
+    region = "sh"
+    zone = "sh001"
+    host = "job01"
+    env = "dev"
 
 [kafka]
     topic = "goim-push-topic"
