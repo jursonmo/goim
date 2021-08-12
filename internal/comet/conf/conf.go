@@ -7,9 +7,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bilibili/discovery/naming"
 	"github.com/BurntSushi/toml"
 	xtime "github.com/Terry-Mao/goim/pkg/time"
+	"github.com/bilibili/discovery/naming"
 )
 
 var (
@@ -124,10 +124,11 @@ type Env struct {
 	Region    string
 	Zone      string
 	DeployEnv string
-	Host      string
-	Weight    int64
-	Offline   bool
-	Addrs     []string
+	Host      string //每个comet 的Host 都必须不一样, 因为logic 的server 就是Host, job 也是根据server 来给指定comet 转发消息
+	// 且需要跟 [discovery] 的配置中Host 一样, job 是通过discovery server 获取到comet host 当成server.
+	Weight  int64
+	Offline bool
+	Addrs   []string
 }
 
 // RPCClient is RPC client config.

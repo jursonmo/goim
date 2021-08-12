@@ -33,8 +33,8 @@ func (j *Job) pushKeys(operation int32, serverID string, subKeys []string, body 
 		Op:   operation,
 		Body: body,
 	}
-	p.WriteTo(buf)
-	p.Body = buf.Buffer()
+	p.WriteTo(buf)        //把 p 按 pktLen:4 headLen:2 Ver:2 op:4 seq:4 格式组装进buf
+	p.Body = buf.Buffer() //然后把这个组装后的buf 赋值给p.Body, 也就是p.Body 就是完整的协议报文了, 这样comet 拿到protocol.OpRaw的数据后，可以直接转发p.Body的数据给client,不需要再次组装。
 	p.Op = protocol.OpRaw
 	var args = comet.PushMsgReq{
 		Keys:    subKeys,
