@@ -1,7 +1,16 @@
 # This is a TOML document. Boom
 [discovery]
     nodes = ["127.0.0.1:7171"]
-
+    region = "sh"
+    zone = "sh001"
+    host = "comet03" # 这个需要跟[env]下的host一样，job 把这个host当成comet 唯一标识.
+    env = "dev"
+[env]
+    region = "sh"
+    zone = "sh001"
+    host = "comet02" #这个是保存到redis的server,是logic 把它作为comet标识,发送消息时，会从redis 读出来表明发给哪个comet
+    #env = "dev
+    DeployEnv = "dev"
 [rpcServer]
     addr = ":3109"
     timeout = "1s"
