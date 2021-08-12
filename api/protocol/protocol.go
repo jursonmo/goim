@@ -2,6 +2,8 @@ package protocol
 
 import (
 	"errors"
+	"io"
+	"unsafe"
 
 	"github.com/Terry-Mao/goim/pkg/bufio"
 	"github.com/Terry-Mao/goim/pkg/bytes"
@@ -220,4 +222,80 @@ func (p *Proto) WriteWebsocketHeart(wr *websocket.Conn, online int32) (err error
 	// proto body
 	binary.BigEndian.PutInt32(buf[_heartOffset:], online)
 	return
+}
+
+//------------ add by will  -------------------
+func (p *Proto) HeaderLen() int {
+	return _verSize + _opSize + _seqSize
+}
+
+func (p *Proto) Len() int {
+	return p.HeaderLen() + len(p.Body)
+}
+
+func RawHearderSize() int {
+	return _rawHeaderSize
+}
+
+func (p *Proto) PktLen() int {
+	return _packSize + _headerSize + p.Len()
+}
+func (p *Proto) Encode(buf []byte) {
+	packLen := _packSize + _headerSize + p.Len()
+	binary.BigEndian.PutInt32(buf[_packOffset:], int32(packLen))
+	binary.BigEndian.PutInt16(buf[_headerOffset:], int16(_rawHeaderSize))
+	binary.BigEndian.PutInt16(buf[_verOffset:], int16(p.Ver))
+	binary.BigEndian.PutInt32(buf[_opOffset:], p.Op)
+	binary.BigEndian.PutInt32(buf[_seqOffset:], p.Seq)
+
+	copy(buf[_rawHeaderSize:], p.Body)
+	return
+}
+
+func (p *Proto) Decode(r io.Reader) (n int, err error) {
+	var (
+		bodyLen   int
+		headerLen int16
+		packLen   int32
+	)
+	buf := make([]byte, RawHearderSize())
+	n, err = io.ReadFull(r, buf)
+	if err != nil {
+		return
+	}
+	packLen = binary.BigEndian.Int32(buf[_packOffset:_headerOffset])
+	headerLen = binary.BigEndian.Int16(buf[_headerOffset:_verOffset])
+	p.Ver = int32(binary.BigEndian.Int16(buf[_verOffset:_opOffset]))
+	p.Op = binary.BigEndian.Int32(buf[_opOffset:_seqOffset])
+	p.Seq = binary.BigEndian.Int32(buf[_seqOffset:])
+	if packLen > _maxPackSize {
+		err = ErrProtoPackLen
+		return
+	}
+	if headerLen != _rawHeaderSize {
+		err = ErrProtoHeaderLen
+		return
+	}
+	if bodyLen = int(packLen - int32(headerLen)); bodyLen > 0 {
+		p.Body = make([]byte, bodyLen)
+		n, err = io.ReadFull(r, p.Body)
+		if err != nil {
+			return
+		}
+	} else {
+		p.Body = nil
+	}
+	return
+}
+
+func ProtoHeadSize() int {
+	p := Proto{}
+	vs := unsafe.Sizeof(p.Ver)
+	os := unsafe.Sizeof(p.Op)
+	ss := unsafe.Sizeof(p.Seq)
+	headLen := *(*int)(unsafe.Pointer(&vs)) +
+		*(*int)(unsafe.Pointer(&os)) +
+		*(*int)(unsafe.Pointer(&ss))
+
+	return headLen
 }
