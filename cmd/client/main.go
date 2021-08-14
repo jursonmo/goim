@@ -23,6 +23,8 @@ func main() {
 		log.Printf("client.Close() err:%+v\n", err)
 	}()
 
+	err = client.SendMidMsg(mid, 1000, []byte("message test"))
+	log.Printf("err:%s", err)
 	for {
 		b := make([]byte, 1024)
 		n, err := client.Read(b)

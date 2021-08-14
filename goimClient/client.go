@@ -5,12 +5,17 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
+	"io/ioutil"
 	"net"
+	"net/http"
 	"net/url"
+	"strings"
 	"sync/atomic"
 	"time"
 
 	"github.com/Terry-Mao/goim/api/protocol"
+	"github.com/bilibili/discovery/naming"
 	pkgerr "github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
 
@@ -29,6 +34,15 @@ type Client struct {
 	Transport
 	MsgAttr
 	Token
+	//discovery Configure
+	disConf *naming.Config
+	logics  map[string]*logic //key is logic hostname
+}
+
+//get logic addr to send message
+type logic struct {
+	addr string
+	hc   *http.Client
 }
 
 type bufAllocator interface {
@@ -154,6 +168,7 @@ func (c *Client) Start() error {
 	c.eg, taskCtx = errgroup.WithContext(rootCtx)
 	c.eg.Go(func() error { return c.Output(taskCtx) })
 	c.eg.Go(func() error { return c.heartbeat(taskCtx) })
+	c.eg.Go(func() error { return c.watchLogic(taskCtx) })
 	return nil
 }
 
@@ -234,7 +249,7 @@ func (c *Client) Output(ctx context.Context) (err error) {
 	if c.output == nil {
 		c.output = make(chan []byte, 128)
 	}
-	defer c.conn.Close() //maybe can make RecevieMsg quit
+	defer c.conn.Close() //maybe can make RecevieMsg or read quit
 	defer func() {
 		log.Errorf("Output task quit, client:%s, err:%v", c.String(), err)
 	}()
@@ -259,8 +274,8 @@ func (c *Client) Output(ctx context.Context) (err error) {
 func (c *Client) heartbeat(ctx context.Context) error {
 	t := time.NewTicker(time.Second * 10)
 	defer t.Stop()
-	defer c.conn.Close() //maybe can make RecevieMsg quit
-	defer c.conn.SetDeadline(time.Now().Add(time.Millisecond))
+	defer c.conn.Close()                                       //maybe can make write and read quit
+	defer c.conn.SetDeadline(time.Now().Add(time.Millisecond)) //make RecevieMsg or read quit
 	for {
 		select {
 		case <-ctx.Done():
@@ -279,6 +294,7 @@ func (c *Client) heartbeat(ctx context.Context) error {
 	}
 }
 
+// RecevieMsg
 func (c *Client) Input(ctx context.Context) error {
 	for {
 		select {
@@ -300,6 +316,113 @@ func (c *Client) Input(ctx context.Context) error {
 				c.recvCb(p.Body)
 			}
 		}
+	}
+	return nil
+}
+
+func (c *Client) watchLogic(ctx context.Context) error {
+	conf := c.disConf
+	dis := naming.New(conf)
+	resolver := dis.Build("goim.comet")
+	event := resolver.Watch()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return pkgerr.Wrap(ctx.Err(), " watchLogic has been canceled")
+		case _, ok := <-event:
+			if !ok {
+				return pkgerr.New("watchLogic exit")
+			}
+			ins, ok := resolver.Fetch()
+			if ok {
+				if err := c.newAddress(ins.Instances); err != nil {
+					log.Errorf("watchLogic newAddress(%+v) error(%+v)", ins, err)
+					continue
+				}
+				log.Infof("watchLogic change newAddress:%+v", ins)
+			}
+		}
+	}
+	return nil
+}
+
+func (c *Client) newAddress(insMap map[string][]*naming.Instance) error {
+	ins := insMap[c.disConf.Zone]
+	if len(ins) == 0 {
+		return fmt.Errorf("watchComet instance is empty in zone:%s", c.disConf.Zone)
+	}
+	logics := make(map[string]*logic)
+	for _, in := range ins {
+		for _, addr := range in.Addrs {
+			if !strings.Contains(addr, "http:") {
+				continue
+			}
+			logics[in.Hostname] = &logic{addr: addr}
+		}
+	}
+	if len(logics) > 0 {
+		c.logics = logics
+	}
+	return nil
+}
+
+type Response struct {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+func (c *Client) SendMidMsg(mid int64, op int32, msg []byte) (err error) {
+	var hc *http.Client
+	if len(c.logics) == 0 {
+		return pkgerr.New("there is no msg server to send msg")
+	}
+	for _, logic := range c.logics {
+		if logic.hc == nil {
+			logic.hc = &http.Client{}
+		}
+		hc = logic.hc
+		url := fmt.Sprintf("%s/push/mids?mids=%d&operation=%d", logic.addr, mid, op)
+		req, err := http.NewRequest("Post", url, nil)
+		if err != nil {
+			logic.hc = nil
+			continue
+		}
+		err = httpRequest(hc, req)
+		if err != nil {
+			logic.hc = nil
+			continue
+		}
+	}
+	return nil
+}
+func httpRequest(hc *http.Client, req *http.Request) error {
+	resp, err := hc.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusOK {
+		response := &Response{}
+		// de := json.NewDecoder(resp.Body)
+		// err = de.Decode(response)
+		body, err := ioutil.ReadAll(resp.Body) // read all data
+		if err != nil {
+			return err
+		}
+		err = json.Unmarshal(body, response)
+		if err != nil {
+			return err
+		}
+		//server result ok
+		if response.Code != 0 {
+			return fmt.Errorf("response.Code:%d", response.Code)
+		}
+	} else {
+		io.Copy(ioutil.Discard, resp.Body) //drain all data for reuse tcp
+		return fmt.Errorf("resp.StatusCode:%d", resp.StatusCode)
 	}
 	return nil
 }
