@@ -20,12 +20,14 @@ require (
 	github.com/onsi/ginkgo v1.16.0 // indirect
 	github.com/onsi/gomega v1.11.0 // indirect
 	github.com/pierrec/lz4 v2.0.5+incompatible // indirect
+	github.com/pkg/errors v0.9.1
 	github.com/rcrowley/go-metrics v0.0.0-20181016184325-3113b8401b8a // indirect
 	github.com/smartystreets/assertions v0.0.0-20180927180507-b2de0cb4f26d // indirect
 	github.com/stretchr/testify v1.5.1
 	github.com/ugorji/go/codec v0.0.0-20190204201341-e444a5086c43 // indirect
 	github.com/zhenjl/cityhash v0.0.0-20131128155616-cdd6a94144ab
 	golang.org/x/net v0.0.0-20201202161906-c7110b5ffcbb
+	golang.org/x/sync v0.0.0-20201020160332-67f06af15bc9
 	google.golang.org/grpc v1.22.3
 	gopkg.in/Shopify/sarama.v1 v1.19.0
 )
