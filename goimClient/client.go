@@ -168,7 +168,7 @@ func (c *Client) Start() error {
 	c.eg, taskCtx = errgroup.WithContext(rootCtx)
 	c.eg.Go(func() error { return c.Output(taskCtx) })
 	c.eg.Go(func() error { return c.heartbeat(taskCtx) })
-	c.eg.Go(func() error { return c.watchLogic(taskCtx) })
+	//c.eg.Go(func() error { return c.watchLogic(taskCtx) })
 	return nil
 }
 
@@ -373,18 +373,49 @@ type Response struct {
 	Data    interface{} `json:"data,omitempty"`
 }
 
-func (c *Client) SendMidMsg(mid int64, op int32, msg []byte) (err error) {
+func (c *Client) SendMidMsgToServer(server string, mids []int64, op int32, msg string) (err error) {
+	Url, err := url.Parse(fmt.Sprintf("http://%s/goim/push/mids", server))
+	if err != nil {
+		return err
+	}
+
+	params := url.Values{}
+	params.Add("operation", fmt.Sprintf("%d", op))
+	for _, mid := range mids {
+		params.Add("mids", fmt.Sprintf("%d", mid))
+	}
+	Url.RawQuery = params.Encode()
+	//log.Infof("Url.String():%s", Url.String()) //output: http://127.0.0.1:3111/goim/push/mids?mids=1&operation=1000
+	req, err := http.NewRequest("POST", Url.String(), strings.NewReader(msg))
+	if err != nil {
+		return pkgerr.Wrap(err, "NewRequest err")
+	}
+
+	hc := &http.Client{}
+	return httpRequest(hc, req)
+}
+
+func (c *Client) SendMidMsg(mids []int64, op int32, msg string) (err error) {
 	var hc *http.Client
 	if len(c.logics) == 0 {
 		return pkgerr.New("there is no msg server to send msg")
 	}
+
+	params := url.Values{}
+	for _, mid := range mids {
+		params.Add("mids", fmt.Sprintf("%d", mid))
+	}
+	params.Add("operation", fmt.Sprintf("%d", op))
+	url_params := params.Encode()
+	//url_params := fmt.Sprintf("mid=%d&operation=%d", mid, op)
+
 	for _, logic := range c.logics {
 		if logic.hc == nil {
 			logic.hc = &http.Client{}
 		}
 		hc = logic.hc
-		url := fmt.Sprintf("%s/push/mids?mids=%d&operation=%d", logic.addr, mid, op)
-		req, err := http.NewRequest("Post", url, nil)
+		url := fmt.Sprintf("http://%s/goim/push/mids?%s", logic.addr, url_params)
+		req, err := http.NewRequest("Post", url, strings.NewReader(msg))
 		if err != nil {
 			logic.hc = nil
 			continue
