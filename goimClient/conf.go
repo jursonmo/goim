@@ -5,14 +5,54 @@ import (
 	"net"
 	"time"
 
+	"github.com/bilibili/discovery/naming"
 	pkgerr "github.com/pkg/errors"
 )
+
+type Option func(c *Client)
+
+func WithAccepts(accepts []int32) Option {
+	return func(c *Client) {
+		c.Accepts = accepts
+	}
+}
+func WithPlatform(platform string) Option {
+	return func(c *Client) {
+		c.Platform = platform
+	}
+}
+
+func WithRegion(v string) Option {
+	return func(c *Client) {
+		if v != "" {
+			c.disConf.Region = v
+		}
+	}
+}
+func WithZone(v string) Option {
+	return func(c *Client) {
+		if v != "" {
+			c.disConf.Zone = v
+		}
+	}
+}
+func WithEnv(v string) Option {
+	return func(c *Client) {
+		if v != "" {
+			c.disConf.Env = v
+		}
+	}
+}
 
 type Transport struct {
 	conn net.Conn
 	rw   bufio.ReadWriter
 	DialConf
 	Conf interface{}
+}
+
+type Discovery struct {
+	naming.Config
 }
 
 type DialConf struct {
@@ -35,4 +75,22 @@ func NewTransportConf(scheme string) (interface{}, error) {
 		return nil, pkgerr.Errorf("NewTransportConf: unknow %s", scheme)
 	}
 	return nil, pkgerr.Errorf("NewTransportConf: unknow %s", scheme)
+}
+
+func DefaultDiscoveryConf() *naming.Config {
+	return &naming.Config{
+		Nodes:  []string{"127.0.0.1:7171"},
+		Region: "sh",
+		Zone:   "sh001",
+		Env:    "dev",
+		Host:   "client01",
+	}
+}
+
+func (c *Discovery) Options() []Option {
+	return []Option{
+		WithRegion(c.Region),
+		WithZone(c.Zone),
+		WithEnv(c.Env),
+	}
 }

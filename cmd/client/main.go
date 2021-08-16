@@ -4,13 +4,22 @@ import (
 	"log"
 
 	"github.com/Terry-Mao/goim/goimClient"
+	"github.com/bilibili/discovery/naming"
 )
 
 func main() {
 	mid := int64(1)
 	cometServer := "tcp://127.0.0.1:3101"
-	client, err := goimClient.NewClient(cometServer, mid, "key1", "room1",
-		goimClient.WithAccepts([]int32{1000, 2000, 3000}), goimClient.WithPlatform("golang client"))
+	disConf := &goimClient.Discovery{
+		naming.Config{
+			Nodes:  []string{"127.0.0.1:7171"},
+			Region: "",
+			Zone:   "sh001",
+		},
+	}
+	options := append([]goimClient.Option(nil), goimClient.WithAccepts([]int32{1000, 2000, 3000}), goimClient.WithPlatform("golang client"))
+	options = append(options, disConf.Options()...)
+	client, err := goimClient.NewClient(cometServer, mid, "key1", "room1", options...)
 	if err != nil {
 		log.Panicf("%+v", err) //printf stack
 	}
@@ -33,10 +42,10 @@ func main() {
 	}
 
 	// use discovry find goim.logic http server
-	//err = client.SendMidMsg([]int64{mid}, 1000, "mid message test")
-	// if err != nil {
-	// 	log.Printf("SendMidMsg err:%+v", err)
-	// }
+	err = client.SendMidMsg([]int64{mid}, 1000, "mid message test")
+	if err != nil {
+		log.Printf("SendMidMsg err:%+v", err)
+	}
 
 	for {
 		b := make([]byte, 1024)

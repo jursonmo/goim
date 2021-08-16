@@ -70,18 +70,6 @@ type Token struct {
 // RoomID: 表示加入那个群里，相当于订阅了这个群的消息
 //Accepts: 标识这个Key 连接接受哪些类型的消息，也就消息从job发到comet时，comet 在发送给client 时，就会检查消息的类型。
 
-type Option func(c *Client)
-
-func WithAccepts(accepts []int32) Option {
-	return func(c *Client) {
-		c.Accepts = accepts
-	}
-}
-func WithPlatform(platform string) Option {
-	return func(c *Client) {
-		c.Platform = platform
-	}
-}
 func (c *Client) String() string {
 	return fmt.Sprintf("mid:%d, key:%s, roomid:%s", c.Mid, c.Key, c.RoomID)
 }
@@ -101,6 +89,8 @@ func NewClient(addr string, mid int64, key, roomID string, ops ...Option) (*Clie
 	if err != nil {
 		return nil, err
 	}
+
+	c.disConf = DefaultDiscoveryConf()
 
 	c.Mid = mid
 	c.Key = key
@@ -127,6 +117,8 @@ func NewClientWithToken(addr string, t Token, ops ...Option) (*Client, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	c.disConf = DefaultDiscoveryConf()
 
 	c.Token = t
 	for _, op := range ops {
@@ -168,7 +160,7 @@ func (c *Client) Start() error {
 	c.eg, taskCtx = errgroup.WithContext(rootCtx)
 	c.eg.Go(func() error { return c.Output(taskCtx) })
 	c.eg.Go(func() error { return c.heartbeat(taskCtx) })
-	//c.eg.Go(func() error { return c.watchLogic(taskCtx) })
+	c.eg.Go(func() error { return c.watchLogic(taskCtx) })
 	return nil
 }
 
@@ -323,7 +315,7 @@ func (c *Client) Input(ctx context.Context) error {
 func (c *Client) watchLogic(ctx context.Context) error {
 	conf := c.disConf
 	dis := naming.New(conf)
-	resolver := dis.Build("goim.comet")
+	resolver := dis.Build("goim.logic")
 	event := resolver.Watch()
 
 	for {
@@ -348,23 +340,35 @@ func (c *Client) watchLogic(ctx context.Context) error {
 }
 
 func (c *Client) newAddress(insMap map[string][]*naming.Instance) error {
+	log.Info("insMap :%v", insMap)
 	ins := insMap[c.disConf.Zone]
 	if len(ins) == 0 {
 		return fmt.Errorf("watchComet instance is empty in zone:%s", c.disConf.Zone)
 	}
 	logics := make(map[string]*logic)
 	for _, in := range ins {
+		log.Info("in.Addrs:%v", in.Addrs)
 		for _, addr := range in.Addrs {
-			if !strings.Contains(addr, "http:") {
+			a := extractAddr(addr) //
+			if a == "" {
 				continue
 			}
-			logics[in.Hostname] = &logic{addr: addr}
+			logics[in.Hostname] = &logic{addr: a}
 		}
 	}
 	if len(logics) > 0 {
 		c.logics = logics
 	}
 	return nil
+}
+
+//sheme://x.x.x.x:123, get http
+func extractAddr(addr string) string {
+	u, err := url.Parse(addr)
+	if err == nil && u.Scheme == "http" {
+		return u.Host
+	}
+	return ""
 }
 
 type Response struct {
@@ -390,6 +394,7 @@ func (c *Client) SendMidMsgToServer(server string, mids []int64, op int32, msg s
 	if err != nil {
 		return pkgerr.Wrap(err, "NewRequest err")
 	}
+	//req.Header.Set("Connection", "close")
 
 	hc := &http.Client{}
 	return httpRequest(hc, req)
@@ -437,9 +442,9 @@ func httpRequest(hc *http.Client, req *http.Request) error {
 
 	if resp.StatusCode == http.StatusOK {
 		response := &Response{}
-		// de := json.NewDecoder(resp.Body)
+		// de := json.NewDecoder(resp.Body) //避免没有读完resp.Body的所有内容
 		// err = de.Decode(response)
-		body, err := ioutil.ReadAll(resp.Body) // read all data
+		body, err := ioutil.ReadAll(io.LimitReader(resp.Body, 2048)) // read all data, but limit max 2048 for avoid being attacked
 		if err != nil {
 			return err
 		}
