@@ -38,8 +38,8 @@ func (d *Discovery) register(ctx context.Context, ins *Instance) (err error) {
 	d.mutex.RUnlock()
 	.......
 	params := d.newParams(c)
-    params.Set("appid", ins.AppID)
-    //modify 
+	params.Set("appid", ins.AppID)
+	//modify 
 	//params.Set("addrs", strings.Join(ins.Addrs, ","))	
 	for _, addr := range ins.Addrs { //主要是做了这个修改
 		params.Add("addrs", addr)
