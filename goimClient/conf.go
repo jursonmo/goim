@@ -5,6 +5,7 @@ import (
 	"net"
 	"time"
 
+	xtime "github.com/Terry-Mao/goim/pkg/time"
 	"github.com/bilibili/discovery/naming"
 	pkgerr "github.com/pkg/errors"
 )
@@ -55,6 +56,15 @@ type Discovery struct {
 	naming.Config
 }
 
+// net.ipv4.tcp_keepalive_time=7200
+// net.ipv4.tcp_keepalive_intvl=75
+// net.ipv4.tcp_keepalive_probes=9
+type HeartBeatConf struct {
+	KeepaliveTime   xtime.Duration
+	KeepaliveIntvl  xtime.Duration
+	KeepaliveProbes int
+}
+
 type DialConf struct {
 	Scheme    string
 	Host      string
@@ -92,5 +102,13 @@ func (c *Discovery) Options() []Option {
 		WithRegion(c.Region),
 		WithZone(c.Zone),
 		WithEnv(c.Env),
+	}
+}
+
+func DefaultHeartBeatConf() *HeartBeatConf {
+	return &HeartBeatConf{
+		KeepaliveTime:   xtime.Duration(10 * time.Second),
+		KeepaliveIntvl:  xtime.Duration(time.Second),
+		KeepaliveProbes: 3,
 	}
 }

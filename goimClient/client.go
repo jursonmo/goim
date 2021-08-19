@@ -28,16 +28,23 @@ type Client struct {
 	output        chan []byte
 	heartbeatChan chan []byte
 	cancel        context.CancelFunc
-	recvCb        func([]byte)
+	handler       Handler
 	//wg            WaitGroupWrapper
-	eg *errgroup.Group
+	eg      *errgroup.Group
+	taskCtx context.Context
 	Transport
 	MsgAttr
 	Token
+	HeartBeatConf
 	//discovery Configure
 	disConf *naming.Config
 	logics  map[string]*logic //key is logic hostname
 }
+
+// type Handler interface {
+// 	HandleMessage(msg []byte)
+// }
+type Handler func(msg []byte)
 
 //get logic addr to send message
 type logic struct {
@@ -156,11 +163,20 @@ func (c *Client) Start() error {
 	//c.wg.AddRun(func() { c.heartbeat(rootCtx) })
 	//c.wg.AddRun(func() { c.Inbound(rootCtx) })
 
-	var taskCtx context.Context
-	c.eg, taskCtx = errgroup.WithContext(rootCtx)
-	c.eg.Go(func() error { return c.Output(taskCtx) })
-	c.eg.Go(func() error { return c.heartbeat(taskCtx) })
-	c.eg.Go(func() error { return c.watchLogic(taskCtx) })
+	c.eg, c.taskCtx = errgroup.WithContext(rootCtx)
+	c.eg.Go(func() error { return c.Output(c.taskCtx) })
+	c.eg.Go(func() error { return c.heartbeat(c.taskCtx) })
+	c.eg.Go(func() error { return c.watchLogic(c.taskCtx) })
+	return nil
+}
+
+//Subscribe
+func (c *Client) Consume(handler Handler) error {
+	if c.Closed() {
+		return pkgerr.New("Client has closed")
+	}
+	c.handler = handler
+	c.eg.Go(func() error { return c.Input(c.taskCtx) })
 	return nil
 }
 
@@ -171,6 +187,10 @@ func (c *Client) Close() error {
 	c.cancel() //cancel Output and heartbeat, 如果
 	c.eg.Wait()
 	return nil
+}
+
+func (c *Client) Wait() error {
+	return c.eg.Wait()
 }
 
 func (c *Client) Closed() bool {
@@ -280,8 +300,9 @@ func (c *Client) heartbeat(ctx context.Context) error {
 
 			buf := make([]byte, p.PktLen())
 			p.Encode(buf)
-			c.output <- buf
-			//
+			go func() {
+				c.output <- buf
+			}()
 		}
 	}
 }
@@ -304,8 +325,8 @@ func (c *Client) Input(ctx context.Context) error {
 				continue
 			}
 			//todo: check p.Op in c.Accepts or check p.Ver if ok, p.Body 就原始发送消息了
-			if p.Body != nil && c.recvCb != nil {
-				c.recvCb(p.Body)
+			if p.Body != nil && c.handler != nil {
+				c.handler(p.Body)
 			}
 		}
 	}

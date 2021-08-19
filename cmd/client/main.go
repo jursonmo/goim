@@ -47,13 +47,20 @@ func main() {
 		log.Printf("SendMidMsg err:%+v", err)
 	}
 
-	for {
-		b := make([]byte, 1024)
-		n, err := client.Read(b)
-		if err != nil {
-			log.Printf("Read fail: %+v\n", err) //printf stack
-			return
+	client.Consume(func(msg []byte) {
+		log.Printf("recvmsg:%s\n", string(msg))
+	})
+
+	/*
+		for {
+			b := make([]byte, 1024)
+			n, err := client.Read(b)
+			if err != nil {
+				log.Printf("Read fail: %+v\n", err) //printf stack
+				return
+			}
+			log.Printf("recvmsg:%s\n", b[:n])
 		}
-		log.Printf("recvmsg:%s\n", b[:n])
-	}
+	*/
+	log.Printf("client end with err:%+v", client.Wait())
 }
