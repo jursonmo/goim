@@ -11,6 +11,7 @@ import (
 )
 
 type Option func(c *Client)
+type HBOption func(c *HeartBeatConf)
 
 func WithAccepts(accepts []int32) Option {
 	return func(c *Client) {
@@ -41,6 +42,13 @@ func WithEnv(v string) Option {
 	return func(c *Client) {
 		if v != "" {
 			c.disConf.Env = v
+		}
+	}
+}
+func WithHost(v string) Option {
+	return func(c *Client) {
+		if v != "" {
+			c.disConf.Host = v
 		}
 	}
 }
@@ -102,6 +110,16 @@ func (c *Discovery) Options() []Option {
 		WithRegion(c.Region),
 		WithZone(c.Zone),
 		WithEnv(c.Env),
+		WithHost(c.Host),
+	}
+}
+
+// 嵌套 option 方式, 这样外层调用就不用 append 的方式组织option 了
+func (c *Discovery) WithOptions(opts ...Option) Option {
+	return func(c *Client) {
+		for _, opt := range opts {
+			opt(c)
+		}
 	}
 }
 
@@ -110,5 +128,30 @@ func DefaultHeartBeatConf() *HeartBeatConf {
 		KeepaliveTime:   xtime.Duration(10 * time.Second),
 		KeepaliveIntvl:  xtime.Duration(time.Second),
 		KeepaliveProbes: 3,
+	}
+}
+
+// 嵌套 option 方式
+func WithHeartbeat(hbOpts ...HBOption) Option {
+	return func(c *Client) {
+		for _, opt := range hbOpts {
+			opt(&c.HeartBeatConf)
+		}
+	}
+}
+
+func WithKeapaliveIntvl(t time.Duration) HBOption {
+	return func(c *HeartBeatConf) {
+		c.KeepaliveIntvl = xtime.Duration(t)
+	}
+}
+func WithKeapaliveTime(t time.Duration) HBOption {
+	return func(c *HeartBeatConf) {
+		c.KeepaliveTime = xtime.Duration(t)
+	}
+}
+func WithKeapaliveProbes(n int) HBOption {
+	return func(c *HeartBeatConf) {
+		c.KeepaliveProbes = n
 	}
 }
