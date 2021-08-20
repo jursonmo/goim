@@ -19,25 +19,27 @@ func main() {
 			Zone:   "sh001",
 		},
 	}
-	/*
-		options := append([]goimClient.Option(nil), goimClient.WithAccepts([]int32{1000, 2000, 3000}), goimClient.WithPlatform("golang client"))
-		options = append(options, disConf.Options()...)
-		options = append(options, goimClient.WithHeartbeat(goimClient.WithKeapaliveTime(5*time.Second),
-			goimClient.WithKeapaliveIntvl(3*time.Second), goimClient.WithKeapaliveProbes(3)))
-
-		client, err := goimClient.NewClient(cometServer, mid, "key1", "room1", options...)
-	*/
-	/*
-		client, err := goimClient.NewClient(cometServer, mid, "key1", "room1", goimClient.WithDisOptions(disConf.Options()...),
-		goimClient.WithAccepts([]int32{1000, 2000, 3000}), goimClient.WithPlatform("golang client"),
-		goimClient.WithHeartbeat(goimClient.WithKeapaliveTime(5*time.Second),
-			goimClient.WithKeapaliveIntvl(3*time.Second), goimClient.WithKeapaliveProbes(3)))
-	*/
 	hbConf := &goimClient.HeartBeatConf{
 		KeepaliveTime:   xtime.Duration(time.Second * 8),
 		KeepaliveIntvl:  xtime.Duration(time.Second),
 		KeepaliveProbes: 3,
 	}
+	/*//方法一
+	options := append([]goimClient.Option(nil), goimClient.WithAccepts([]int32{1000, 2000, 3000}), goimClient.WithPlatform("golang client"))
+	options = append(options, disConf.Options()...)
+	options = append(options, goimClient.WithHeartbeat(goimClient.WithKeapaliveTime(8*time.Second),
+		goimClient.WithKeapaliveIntvl(time.Second), goimClient.WithKeapaliveProbes(3)))
+
+	client, err := goimClient.NewClient(cometServer, mid, "key1", "room1", options...)
+	*/
+	/*//方法二
+	client, err := goimClient.NewClient(cometServer, mid, "key1", "room1", goimClient.WithDisOptions(disConf.Options()...),
+	goimClient.WithAccepts([]int32{1000, 2000, 3000}), goimClient.WithPlatform("golang client"),
+	goimClient.WithHeartbeat(goimClient.WithKeapaliveTime(5*time.Second),
+		goimClient.WithKeapaliveIntvl(3*time.Second), goimClient.WithKeapaliveProbes(3)))
+	*/
+
+	//方法三
 	client, err := goimClient.NewClient(cometServer, mid, "key1", "room1", goimClient.WithDisOptions(disConf.Options()...),
 		goimClient.WithAccepts([]int32{1000, 2000, 3000}), goimClient.WithPlatform("golang client"),
 		goimClient.WithHeartbeat(hbConf.Options()...))
