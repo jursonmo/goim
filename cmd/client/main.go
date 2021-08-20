@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/Terry-Mao/goim/goimClient"
+	xtime "github.com/Terry-Mao/goim/pkg/time"
 	"github.com/bilibili/discovery/naming"
 )
 
@@ -26,10 +27,20 @@ func main() {
 
 		client, err := goimClient.NewClient(cometServer, mid, "key1", "room1", options...)
 	*/
-	client, err := goimClient.NewClient(cometServer, mid, "key1", "room1", disConf.WithOptions(disConf.Options()...),
+	/*
+		client, err := goimClient.NewClient(cometServer, mid, "key1", "room1", goimClient.WithDisOptions(disConf.Options()...),
 		goimClient.WithAccepts([]int32{1000, 2000, 3000}), goimClient.WithPlatform("golang client"),
 		goimClient.WithHeartbeat(goimClient.WithKeapaliveTime(5*time.Second),
 			goimClient.WithKeapaliveIntvl(3*time.Second), goimClient.WithKeapaliveProbes(3)))
+	*/
+	hbConf := &goimClient.HeartBeatConf{
+		KeepaliveTime:   xtime.Duration(time.Second * 8),
+		KeepaliveIntvl:  xtime.Duration(time.Second),
+		KeepaliveProbes: 3,
+	}
+	client, err := goimClient.NewClient(cometServer, mid, "key1", "room1", goimClient.WithDisOptions(disConf.Options()...),
+		goimClient.WithAccepts([]int32{1000, 2000, 3000}), goimClient.WithPlatform("golang client"),
+		goimClient.WithHeartbeat(hbConf.Options()...))
 	if err != nil {
 		log.Panicf("%+v", err) //printf stack
 	}

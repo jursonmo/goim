@@ -115,7 +115,7 @@ func (c *Discovery) Options() []Option {
 }
 
 // 嵌套 option 方式, 这样外层调用就不用 append 的方式组织option 了
-func (c *Discovery) WithOptions(opts ...Option) Option {
+func WithDisOptions(opts ...Option) Option {
 	return func(c *Client) {
 		for _, opt := range opts {
 			opt(c)
@@ -128,6 +128,14 @@ func DefaultHeartBeatConf() *HeartBeatConf {
 		KeepaliveTime:   xtime.Duration(10 * time.Second),
 		KeepaliveIntvl:  xtime.Duration(time.Second),
 		KeepaliveProbes: 3,
+	}
+}
+
+func (c *HeartBeatConf) Options() []HBOption {
+	return []HBOption{
+		WithKeapaliveTime(time.Duration(c.KeepaliveTime)),
+		WithKeapaliveIntvl(time.Duration(c.KeepaliveIntvl)),
+		WithKeapaliveProbes(c.KeepaliveProbes),
 	}
 }
 
